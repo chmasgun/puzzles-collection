@@ -366,6 +366,10 @@ export default function MaffdokuPuzzlePage() {
           console.log('Solution is correct!')
           setIsCompleted(true)
           setErrors([])
+          // Show message about progress saving
+          if (data.message) {
+            console.log(data.message)
+          }
         } else {
           console.log('Solution has errors:', data.data.errors)
           setErrors(data.data.errors || ['Some values are incorrect'])
@@ -449,6 +453,32 @@ export default function MaffdokuPuzzlePage() {
           </div>
         </div>
       </div>
+
+      {/* Sign-in prompt for non-authenticated users */}
+      {!session && (
+        <div className="bg-blue-50 border-b border-blue-200">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-blue-800">
+                    <strong>Playing as guest.</strong> Sign in to save your progress and compete on leaderboards.
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/auth/signin"
+                className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Sign In
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Check Solution Button */}

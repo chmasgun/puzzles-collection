@@ -134,13 +134,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const session = await getServerSession(authOptions)
     
-    if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      )
-    }
-
     const body = await request.json()
     const { currentGrid, timeSpent, hintsUsed, isCompleted } = body
     console.log('Received body:', body)
@@ -175,12 +168,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       score = Math.max(10, Math.round(baseScore + timeBonus - hintPenalty))
     }
 
-    // Update or create progress
-    const progress = await UserProgress.findOneAndUpdate(
-      {
-        userId: session.user.id,
-        puzzleId: params.id
-      },
+    // Update or create progress (only if user is authenticated)
+    let progress = null
+    if (session?.user?.id) {
+      progress = await UserProgress.findOneAndUpdate(
+        {
+          userId: session.user.id,
+          puzzleId: params.id
+        },
       {
         status: puzzleIsComplete ? 'completed' : 'in_progress',
         currentState: {
@@ -197,8 +192,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         upsert: true,
         new: true,
         runValidators: true
-      }
-    )
+        }
+      )
+    }
 
     return NextResponse.json({
       success: true,
@@ -210,7 +206,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         errors: validation.validation.errors.map(e => e.message),
         score: puzzleIsComplete ? score : undefined
       },
-      message: puzzleIsComplete ? 'Puzzle completed successfully!' : 'Progress saved'
+      message: session?.user?.id 
+        ? (puzzleIsComplete ? 'Puzzle completed successfully!' : 'Progress saved')
+        : (puzzleIsComplete ? 'Puzzle completed! Sign in to save your progress.' : 'Solution validated. Sign in to save progress.')
     })
 
   } catch (error) {
@@ -227,10 +225,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const session = await getServerSession(authOptions)
     
     if (!session?.user?.id) {
-      return NextResponse.json(
-        { success: false, error: 'Authentication required' },
-        { status: 401 }
-      )
+      return NextResponse.json({
+        success: true,
+        data: null,
+        message: 'No user session - no progress available'
+      })
     }
 
     await dbConnect()

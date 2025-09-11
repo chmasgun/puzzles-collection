@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { Grid2x2X, Clock, Trophy, Star, Filter, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Grid2x2X, Clock, Trophy, Star, Filter, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
 import { DifficultyLevel, IPuzzle, IUserProgress } from '@/types'
 
 interface PuzzleWithProgress extends IPuzzle {
@@ -104,23 +104,7 @@ export default function MaffdokuPuzzlesPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
-  if (!session) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100 flex items-center justify-center">
-        <div className="text-center">
-          <Grid2x2X className="h-16 w-16 text-purple-600 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Sign in Required</h1>
-          <p className="text-gray-600 mb-4">Please sign in to access Maffdoku puzzles</p>
-          <Link
-            href="/auth/signin"
-            className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-          >
-            Sign In
-          </Link>
-        </div>
-      </div>
-    )
-  }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100">
@@ -157,6 +141,40 @@ export default function MaffdokuPuzzlesPage() {
           </div>
         </div>
       </div>
+
+      {/* Sign-in prompt for non-authenticated users */}
+      {!session && (
+        <div className="bg-blue-50 border-b border-blue-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex-shrink-0">
+                  <AlertCircle className="h-5 w-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-blue-800">
+                    <strong>Playing as guest.</strong> Sign in to save your progress and track your achievements.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Link
+                  href="/auth/signin"
+                  className="text-sm bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  className="text-sm text-blue-600 hover:text-blue-800 transition-colors"
+                >
+                  Sign Up
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
