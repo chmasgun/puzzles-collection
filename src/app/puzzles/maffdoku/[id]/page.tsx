@@ -46,7 +46,6 @@ export default function MaffdokuPuzzlePage() {
   const [errors, setErrors] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [showMobileKeypad, setShowMobileKeypad] = useState(false)
 
   const puzzleId = params.id as string
 
@@ -265,15 +264,6 @@ export default function MaffdokuPuzzlePage() {
     validatePendingInput()
     setSelectedCell({ row, col })
     setInputBuffer('')
-    
-    // Show mobile keypad on touch devices
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                     ('ontouchstart' in window) || 
-                     (navigator.maxTouchPoints > 0)
-    
-    if (isMobile) {
-      setShowMobileKeypad(true)
-    }
   }
 
   const isGridComplete = () => {
@@ -286,30 +276,22 @@ export default function MaffdokuPuzzlePage() {
     }
   }
 
-  const handleMobileInput = (value: string | number) => {
+  const handleNumberClick = (value: number | string) => {
     if (!selectedCell || !puzzle) return
 
     if (value === 'clear') {
       setCellValue(selectedCell.row, selectedCell.col, 0)
-      setShowMobileKeypad(false)
-      return
-    }
-
-    if (value === 'close') {
-      setShowMobileKeypad(false)
       return
     }
 
     const numValue = typeof value === 'string' ? parseInt(value) : value
     if (!isNaN(numValue)) {
       setCellValue(selectedCell.row, selectedCell.col, numValue)
-      setShowMobileKeypad(false)
       
       // Auto-advance to next empty cell
       const nextCell = findNextEmptyCell()
       if (nextCell) {
         setSelectedCell(nextCell)
-        setShowMobileKeypad(true)
       }
     }
   }
@@ -613,12 +595,53 @@ export default function MaffdokuPuzzlePage() {
             </div>
           </div>
 
+          {/* Number Pad */}
+          <div className="mt-6 flex flex-col items-center">
+            <h3 className="text-lg font-semibold mb-4">
+              {selectedCell ? `Select Number (Row ${selectedCell.row + 1}, Col ${selectedCell.col + 1})` : 'Click a cell to select'}
+            </h3>
+            
+            <div className={`grid gap-3 mb-4 ${puzzle.data.size === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
+              {Array.from({ length: puzzle.data.size * puzzle.data.size }, (_, i) => i + 1).map(num => {
+                const isUsed = playerGrid.flat().includes(num)
+                return (
+                  <button
+                    key={num}
+                    onClick={() => handleNumberClick(num)}
+                    disabled={isUsed || !selectedCell}
+                    className={`w-12 h-12 rounded-lg font-semibold text-lg transition-colors ${
+                      isUsed
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        : !selectedCell
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700'
+                    }`}
+                  >
+                    {num}
+                  </button>
+                )
+              })}
+            </div>
+            
+            <button
+              onClick={() => handleNumberClick('clear')}
+              disabled={!selectedCell}
+              className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+                !selectedCell
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-red-500 text-white hover:bg-red-600 active:bg-red-700'
+              }`}
+            >
+              Clear Cell
+            </button>
+          </div>
+
           {/* Instructions */}
           <div className="mt-6 text-center text-sm text-gray-600">
             <div className="space-y-1">
               <div><strong>Goal:</strong> Fill the grid with numbers 1-{puzzle.data.size === 3 ? 9 : 16} (each used exactly once)</div>
               <div><strong>Constraints:</strong> Match the visible sums and products shown around the grid</div>
-              <div><strong>Input:</strong> Click cells to select • Desktop: type numbers or use arrow keys • Mobile: tap for number pad</div>
+              <div><strong>Input:</strong> Click cells to select • Use number pad below or type on keyboard</div>
               <div><strong>Submit:</strong> Fill all cells, then click "Check Solution" to validate your answer</div>
               {selectedCell && (
                 <div className="mt-2 text-xs text-purple-600 font-medium">
@@ -628,60 +651,6 @@ export default function MaffdokuPuzzlePage() {
               )}
             </div>
           </div>
-
-          {/* Mobile Keypad */}
-          {showMobileKeypad && selectedCell && puzzle && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
-              <div className="bg-white w-full max-w-md rounded-t-2xl p-6 pb-8">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">
-                    Enter Number (Row {selectedCell.row + 1}, Col {selectedCell.col + 1})
-                  </h3>
-                  <button
-                    onClick={() => handleMobileInput('close')}
-                    className="text-gray-500 hover:text-gray-700 text-2xl"
-                  >
-                    ×
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-4 gap-3 mb-4">
-                  {Array.from({ length: puzzle.data.size * puzzle.data.size }, (_, i) => i + 1).map(num => {
-                    const isUsed = playerGrid.flat().includes(num)
-                    return (
-                      <button
-                        key={num}
-                        onClick={() => handleMobileInput(num)}
-                        disabled={isUsed}
-                        className={`h-12 rounded-lg font-semibold text-lg transition-colors ${
-                          isUsed
-                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                            : 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700'
-                        }`}
-                      >
-                        {num}
-                      </button>
-                    )
-                  })}
-                </div>
-                
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => handleMobileInput('clear')}
-                    className="flex-1 h-12 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 active:bg-red-700"
-                  >
-                    Clear
-                  </button>
-                  <button
-                    onClick={() => handleMobileInput('close')}
-                    className="flex-1 h-12 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 active:bg-gray-700"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

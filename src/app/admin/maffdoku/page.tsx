@@ -55,7 +55,6 @@ export default function MaffdokuAdminPage() {
   const [solutionGrid, setSolutionGrid] = useState<number[][]>([])
   const [selectedCell, setSelectedCell] = useState<{row: number, col: number} | null>(null)
   const [inputBuffer, setInputBuffer] = useState<string>('')
-  const [showMobileKeypad, setShowMobileKeypad] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
@@ -381,15 +380,6 @@ export default function MaffdokuAdminPage() {
     // Then select the new cell
     setSelectedCell({ row, col })
     setInputBuffer('') // Clear input buffer when selecting new cell
-    
-    // Show mobile keypad on touch devices
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
-                     ('ontouchstart' in window) || 
-                     (navigator.maxTouchPoints > 0)
-    
-    if (isMobile) {
-      setShowMobileKeypad(true)
-    }
   }
 
   const getUsedNumbers = (): Set<number> => {
@@ -405,30 +395,22 @@ export default function MaffdokuAdminPage() {
     return used
   }
 
-  const handleMobileInput = (value: string | number) => {
+  const handleNumberClick = (value: string | number) => {
     if (!selectedCell) return
 
     if (value === 'clear') {
       setCellValue(selectedCell.row, selectedCell.col, 0)
-      setShowMobileKeypad(false)
-      return
-    }
-
-    if (value === 'close') {
-      setShowMobileKeypad(false)
       return
     }
 
     const numValue = typeof value === 'string' ? parseInt(value) : value
     if (!isNaN(numValue)) {
       setCellValue(selectedCell.row, selectedCell.col, numValue)
-      setShowMobileKeypad(false)
       
       // Auto-advance to next empty cell
       const nextCell = findNextEmptyCell()
       if (nextCell) {
         setSelectedCell(nextCell)
-        setShowMobileKeypad(true)
       }
     }
   }
@@ -980,7 +962,7 @@ export default function MaffdokuAdminPage() {
                 <div className="space-y-1">
                   <div><strong>Click center cells</strong> to select, then <strong>type numbers 1-{form.size === 3 ? 9 : 16}</strong> (each number only once!)</div>
                   <div><strong>Multi-digit:</strong> Type digits sequentially (e.g., "1" then "2" for "12") • <strong>Click elsewhere</strong> to confirm</div>
-                                      <div><strong>Desktop:</strong> Arrow keys navigate • Type numbers • 0/Backspace clears • <strong>Mobile:</strong> Tap for number pad • <strong>Click outer cells</strong> to toggle visibility</div>
+                  <div><strong>Input:</strong> Click cells to select • Use number pad below or type on keyboard • <strong>Click outer cells</strong> to toggle visibility</div>
                   <div className="flex justify-center space-x-4 text-xs mt-2">
                     <span className="flex items-center"><div className="w-3 h-3 bg-blue-200 border mr-1"></div>Sums (Σ)</span>
                     <span className="flex items-center"><div className="w-3 h-3 bg-orange-200 border mr-1"></div>Products (Π)</span>
@@ -993,37 +975,27 @@ export default function MaffdokuAdminPage() {
                   )}
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Mobile Keypad */}
-          {showMobileKeypad && selectedCell && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
-              <div className="bg-white w-full max-w-md rounded-t-2xl p-6 pb-8">
-                <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold">
-                    Enter Number (Row {selectedCell.row + 1}, Col {selectedCell.col + 1})
-                  </h3>
-                  <button
-                    onClick={() => handleMobileInput('close')}
-                    className="text-gray-500 hover:text-gray-700 text-2xl"
-                  >
-                    ×
-                  </button>
-                </div>
+              {/* Number Pad */}
+              <div className="mt-6 flex flex-col items-center">
+                <h3 className="text-lg font-semibold mb-4">
+                  {selectedCell ? `Select Number (Row ${selectedCell.row + 1}, Col ${selectedCell.col + 1})` : 'Click a cell to select'}
+                </h3>
                 
-                <div className="grid grid-cols-4 gap-3 mb-4">
+                <div className={`grid gap-3 mb-4 ${form.size === 3 ? 'grid-cols-3' : 'grid-cols-4'}`}>
                   {Array.from({ length: form.size * form.size }, (_, i) => i + 1).map(num => {
                     const used = getUsedNumbers()
                     const isUsed = used.has(num)
                     return (
                       <button
                         key={num}
-                        onClick={() => handleMobileInput(num)}
-                        disabled={isUsed}
-                        className={`h-12 rounded-lg font-semibold text-lg transition-colors ${
+                        onClick={() => handleNumberClick(num)}
+                        disabled={isUsed || !selectedCell}
+                        className={`w-12 h-12 rounded-lg font-semibold text-lg transition-colors ${
                           isUsed
                             ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            : !selectedCell
+                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                             : 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700'
                         }`}
                       >
@@ -1033,23 +1005,20 @@ export default function MaffdokuAdminPage() {
                   })}
                 </div>
                 
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => handleMobileInput('clear')}
-                    className="flex-1 h-12 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 active:bg-red-700"
-                  >
-                    Clear
-                  </button>
-                  <button
-                    onClick={() => handleMobileInput('close')}
-                    className="flex-1 h-12 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 active:bg-gray-700"
-                  >
-                    Close
-                  </button>
-                </div>
+                <button
+                  onClick={() => handleNumberClick('clear')}
+                  disabled={!selectedCell}
+                  className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+                    !selectedCell
+                      ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                      : 'bg-red-500 text-white hover:bg-red-600 active:bg-red-700'
+                  }`}
+                >
+                  Clear Cell
+                </button>
               </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>
