@@ -8,46 +8,46 @@ export default function HomePage() {
   const { data: session, status } = useSession()
 
   const puzzleTypes = [
-    {
-      id: 'wordle',
-      name: 'Word Puzzles',
-      description: 'Challenge your vocabulary with word-based brain teasers',
-      icon: Brain,
-      color: 'bg-blue-500',
-      href: '/puzzles/wordle'
-    },
-    {
-      id: 'sudoku',
-      name: 'Sudoku',
-      description: 'Classic number placement puzzles',
-      icon: Grid3X3,
-      color: 'bg-green-500',
-      href: '/puzzles/sudoku'
-    },
-    {
-      id: 'pattern',
-      name: 'Pattern Matching',
-      description: 'Identify patterns and sequences',
-      icon: Target,
-      color: 'bg-purple-500',
-      href: '/puzzles/pattern'
-    },
-    {
-      id: 'logic',
-      name: 'Logic Puzzles',
-      description: 'Test your reasoning and deduction skills',
-      icon: Puzzle,
-      color: 'bg-orange-500',
-      href: '/puzzles/logic'
-    },
-    {
-      id: 'math',
-      name: 'Math Puzzles',
-      description: 'Mathematical brain teasers and calculations',
-      icon: Calculator,
-      color: 'bg-red-500',
-      href: '/puzzles/math'
-    },
+    // {
+    //   id: 'wordle',
+    //   name: 'Word Puzzles',
+    //   description: 'Challenge your vocabulary with word-based brain teasers',
+    //   icon: Brain,
+    //   color: 'bg-blue-500',
+    //   href: '/puzzles/wordle'
+    // },
+    // {
+    //   id: 'sudoku',
+    //   name: 'Sudoku',
+    //   description: 'Classic number placement puzzles',
+    //   icon: Grid3X3,
+    //   color: 'bg-green-500',
+    //   href: '/puzzles/sudoku'
+    // },
+    // {
+    //   id: 'pattern',
+    //   name: 'Pattern Matching',
+    //   description: 'Identify patterns and sequences',
+    //   icon: Target,
+    //   color: 'bg-purple-500',
+    //   href: '/puzzles/pattern'
+    // },
+    // {
+    //   id: 'logic',
+    //   name: 'Logic Puzzles',
+    //   description: 'Test your reasoning and deduction skills',
+    //   icon: Puzzle,
+    //   color: 'bg-orange-500',
+    //   href: '/puzzles/logic'
+    // },
+    // {
+    //   id: 'math',
+    //   name: 'Math Puzzles',
+    //   description: 'Mathematical brain teasers and calculations',
+    //   icon: Calculator,
+    //   color: 'bg-red-500',
+    //   href: '/puzzles/math'
+    // },
     {
       id: 'maffdoku',
       name: 'Maffdoku',

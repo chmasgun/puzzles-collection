@@ -55,6 +55,7 @@ export default function MaffdokuAdminPage() {
   const [solutionGrid, setSolutionGrid] = useState<number[][]>([])
   const [selectedCell, setSelectedCell] = useState<{row: number, col: number} | null>(null)
   const [inputBuffer, setInputBuffer] = useState<string>('')
+  const [showMobileKeypad, setShowMobileKeypad] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
@@ -380,6 +381,15 @@ export default function MaffdokuAdminPage() {
     // Then select the new cell
     setSelectedCell({ row, col })
     setInputBuffer('') // Clear input buffer when selecting new cell
+    
+    // Show mobile keypad on touch devices
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                     ('ontouchstart' in window) || 
+                     (navigator.maxTouchPoints > 0)
+    
+    if (isMobile) {
+      setShowMobileKeypad(true)
+    }
   }
 
   const getUsedNumbers = (): Set<number> => {
@@ -393,6 +403,68 @@ export default function MaffdokuAdminPage() {
       }
     }
     return used
+  }
+
+  const handleMobileInput = (value: string | number) => {
+    if (!selectedCell) return
+
+    if (value === 'clear') {
+      setCellValue(selectedCell.row, selectedCell.col, 0)
+      setShowMobileKeypad(false)
+      return
+    }
+
+    if (value === 'close') {
+      setShowMobileKeypad(false)
+      return
+    }
+
+    const numValue = typeof value === 'string' ? parseInt(value) : value
+    if (!isNaN(numValue)) {
+      setCellValue(selectedCell.row, selectedCell.col, numValue)
+      setShowMobileKeypad(false)
+      
+      // Auto-advance to next empty cell
+      const nextCell = findNextEmptyCell()
+      if (nextCell) {
+        setSelectedCell(nextCell)
+        setShowMobileKeypad(true)
+      }
+    }
+  }
+
+  const findNextEmptyCell = () => {
+    if (!selectedCell) return null
+    
+    const size = form.size
+    let { row, col } = selectedCell
+    
+    // Start from next cell
+    col++
+    if (col >= size) {
+      col = 0
+      row++
+    }
+    
+    // Look for next empty cell
+    for (let r = row; r < size; r++) {
+      for (let c = (r === row ? col : 0); c < size; c++) {
+        if (solutionGrid[r][c] === 0) {
+          return { row: r, col: c }
+        }
+      }
+    }
+    
+    // If no empty cell found after current position, search from beginning
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        if (solutionGrid[r][c] === 0) {
+          return { row: r, col: c }
+        }
+      }
+    }
+    
+    return null
   }
 
   const getAvailableNumbers = (): number[] => {
@@ -789,14 +861,16 @@ export default function MaffdokuAdminPage() {
                       width: 'fit-content'
                     }}
                   >
-                    {/* First row: empty corner + column sums + empty corner */}
-                    <div className="w-12 h-12 border border-gray-300 bg-gray-200"></div>
+                                    {/* First row: Sigma corner + column sums + empty corner */}
+                <div className="w-12 h-12 border border-gray-300 bg-blue-200 flex items-center justify-center">
+                  <span className="text-blue-800 font-bold text-xl">Σ</span>
+                </div>
                     {Array.from({ length: form.size }).map((_, col) => (
                       <div 
                         key={`sum-col-${col}`} 
                         className={`w-12 h-12 border border-gray-300 flex items-center justify-center text-sm font-bold cursor-pointer transition-colors ${
                           puzzleData.visibility.columnSums[col] 
-                            ? 'bg-blue-100 text-blue-800 hover:bg-blue-200' 
+                            ? 'bg-blue-200 text-blue-800 hover:bg-blue-300' 
                             : 'bg-gray-300 text-gray-500 hover:bg-gray-400'
                         }`}
                         onClick={() => {
@@ -809,7 +883,7 @@ export default function MaffdokuAdminPage() {
                         {puzzleData.visibility.columnSums[col] ? (puzzleData.constraints.columnSums[col] || '?') : '·'}
                       </div>
                     ))}
-                    <div className="w-12 h-12 border border-gray-300 bg-gray-200"></div>
+                    <div className="w-12 h-12 "></div>
 
                     {/* Middle rows: row sum + puzzle cells + row product */}
                     {Array.from({ length: form.size }).map((_, row) => [
@@ -817,7 +891,7 @@ export default function MaffdokuAdminPage() {
                         key={`sum-row-${row}`} 
                         className={`w-12 h-12 border border-gray-300 flex items-center justify-center text-sm font-bold cursor-pointer transition-colors ${
                           puzzleData.visibility.rowSums[row] 
-                            ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                            ? 'bg-blue-200 text-blue-800 hover:bg-blue-300' 
                             : 'bg-gray-300 text-gray-500 hover:bg-gray-400'
                         }`}
                         onClick={() => {
@@ -859,7 +933,7 @@ export default function MaffdokuAdminPage() {
                         key={`prod-row-${row}`} 
                         className={`w-12 h-12 border border-gray-300 flex items-center justify-center text-sm font-bold cursor-pointer transition-colors ${
                           puzzleData.visibility.rowProducts[row] 
-                            ? 'bg-red-100 text-red-800 hover:bg-red-200' 
+                            ? 'bg-orange-200 text-orange-800 hover:bg-orange-300' 
                             : 'bg-gray-300 text-gray-500 hover:bg-gray-400'
                         }`}
                         onClick={() => {
@@ -873,14 +947,16 @@ export default function MaffdokuAdminPage() {
                       </div>
                     ])}
 
-                    {/* Last row: empty corner + column products + empty corner */}
-                    <div className="w-12 h-12 border border-gray-300 bg-gray-200"></div>
+                                    {/* Last row: empty corner + column products + Pi corner */}
+                <div className="w-12 h-12  flex items-center justify-center">
+                  {/* <span className="text-orange-800 font-bold text-xl">Π</span> */}
+                </div>
                     {Array.from({ length: form.size }).map((_, col) => (
                       <div 
                         key={`prod-col-${col}`} 
                         className={`w-12 h-12 border border-gray-300 flex items-center justify-center text-sm font-bold cursor-pointer transition-colors ${
                           puzzleData.visibility.columnProducts[col] 
-                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200' 
+                            ? 'bg-orange-200 text-orange-800 hover:bg-orange-300' 
                             : 'bg-gray-300 text-gray-500 hover:bg-gray-400'
                         }`}
                         onClick={() => {
@@ -893,7 +969,9 @@ export default function MaffdokuAdminPage() {
                         {puzzleData.visibility.columnProducts[col] ? (puzzleData.constraints.columnProducts[col] || '?') : '·'}
                       </div>
                     ))}
-                    <div className="w-12 h-12 border border-gray-300 bg-gray-200"></div>
+                    <div className="w-12 h-12 border border-gray-300 bg-orange-200 flex items-center justify-center">
+                      <span className="text-orange-800 font-bold text-xl">Π</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -902,12 +980,10 @@ export default function MaffdokuAdminPage() {
                 <div className="space-y-1">
                   <div><strong>Click center cells</strong> to select, then <strong>type numbers 1-{form.size === 3 ? 9 : 16}</strong> (each number only once!)</div>
                   <div><strong>Multi-digit:</strong> Type digits sequentially (e.g., "1" then "2" for "12") • <strong>Click elsewhere</strong> to confirm</div>
-                  <div><strong>Arrow keys</strong> navigate • <strong>0</strong> or <strong>Backspace</strong> clears • <strong>Click outer cells</strong> to toggle visibility</div>
+                                      <div><strong>Desktop:</strong> Arrow keys navigate • Type numbers • 0/Backspace clears • <strong>Mobile:</strong> Tap for number pad • <strong>Click outer cells</strong> to toggle visibility</div>
                   <div className="flex justify-center space-x-4 text-xs mt-2">
-                    <span className="flex items-center"><div className="w-3 h-3 bg-blue-100 border mr-1"></div>Column Sums</span>
-                    <span className="flex items-center"><div className="w-3 h-3 bg-green-100 border mr-1"></div>Row Sums</span>
-                    <span className="flex items-center"><div className="w-3 h-3 bg-yellow-100 border mr-1"></div>Column Products</span>
-                    <span className="flex items-center"><div className="w-3 h-3 bg-red-100 border mr-1"></div>Row Products</span>
+                    <span className="flex items-center"><div className="w-3 h-3 bg-blue-200 border mr-1"></div>Sums (Σ)</span>
+                    <span className="flex items-center"><div className="w-3 h-3 bg-orange-200 border mr-1"></div>Products (Π)</span>
                   </div>
                   {selectedCell && (
                     <div className="mt-2 text-xs text-purple-600 font-medium">
@@ -919,6 +995,61 @@ export default function MaffdokuAdminPage() {
               </div>
             </div>
           </div>
+
+          {/* Mobile Keypad */}
+          {showMobileKeypad && selectedCell && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
+              <div className="bg-white w-full max-w-md rounded-t-2xl p-6 pb-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">
+                    Enter Number (Row {selectedCell.row + 1}, Col {selectedCell.col + 1})
+                  </h3>
+                  <button
+                    onClick={() => handleMobileInput('close')}
+                    className="text-gray-500 hover:text-gray-700 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  {Array.from({ length: form.size * form.size }, (_, i) => i + 1).map(num => {
+                    const used = getUsedNumbers()
+                    const isUsed = used.has(num)
+                    return (
+                      <button
+                        key={num}
+                        onClick={() => handleMobileInput(num)}
+                        disabled={isUsed}
+                        className={`h-12 rounded-lg font-semibold text-lg transition-colors ${
+                          isUsed
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            : 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700'
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    )
+                  })}
+                </div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => handleMobileInput('clear')}
+                    className="flex-1 h-12 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 active:bg-red-700"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={() => handleMobileInput('close')}
+                    className="flex-1 h-12 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 active:bg-gray-700"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

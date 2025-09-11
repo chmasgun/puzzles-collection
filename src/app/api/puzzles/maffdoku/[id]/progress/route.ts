@@ -142,7 +142,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json()
-    const { currentState, timeSpent, hintsUsed } = body
+    const { currentGrid, timeSpent, hintsUsed, isCompleted } = body
+    console.log('Received body:', body)
 
     await dbConnect()
 
@@ -161,12 +162,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // Validate the current solution
-    const validation = validateMaffdokuSolution(puzzle.data as MaffdokuData, currentState.grid)
-    const isCompleted = validation.validation.isComplete
+    console.log('Validating grid:', currentGrid)
+    const validation = validateMaffdokuSolution(puzzle.data as MaffdokuData, currentGrid)
+    const puzzleIsComplete = validation.validation.isComplete && validation.validation.errors.length === 0
 
     // Calculate score based on completion, time, and hints used
     let score = 0
-    if (isCompleted) {
+    if (puzzleIsComplete) {
       const baseScore = puzzle.points || 100
       const timeBonus = Math.max(0, baseScore * 0.5 - (timeSpent / 60) * 5) // Bonus for speed
       const hintPenalty = (hintsUsed || 0) * 10 // Penalty for hints
@@ -180,15 +182,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         puzzleId: params.id
       },
       {
-        status: isCompleted ? 'completed' : 'in_progress',
+        status: puzzleIsComplete ? 'completed' : 'in_progress',
         currentState: {
-          ...currentState,
+          grid: currentGrid,
           validation: validation.validation
         },
         timeSpent: timeSpent || 0,
         hintsUsed: hintsUsed || 0,
-        score: isCompleted ? score : undefined,
-        completedAt: isCompleted ? new Date() : undefined,
+        score: puzzleIsComplete ? score : undefined,
+        completedAt: puzzleIsComplete ? new Date() : undefined,
         $inc: { attempts: 1 }
       },
       {
@@ -203,10 +205,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       data: {
         progress,
         validation: validation.validation,
-        isCompleted,
-        score: isCompleted ? score : undefined
+        isCorrect: puzzleIsComplete,
+        isCompleted: puzzleIsComplete,
+        errors: validation.validation.errors.map(e => e.message),
+        score: puzzleIsComplete ? score : undefined
       },
-      message: isCompleted ? 'Puzzle completed successfully!' : 'Progress saved'
+      message: puzzleIsComplete ? 'Puzzle completed successfully!' : 'Progress saved'
     })
 
   } catch (error) {

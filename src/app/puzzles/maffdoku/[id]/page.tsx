@@ -46,6 +46,7 @@ export default function MaffdokuPuzzlePage() {
   const [errors, setErrors] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [showMobileKeypad, setShowMobileKeypad] = useState(false)
 
   const puzzleId = params.id as string
 
@@ -206,14 +207,47 @@ export default function MaffdokuPuzzlePage() {
   }, [selectedCell, puzzle, inputBuffer, isCompleted])
 
   const setCellValue = (row: number, col: number, value: number) => {
+    if (!puzzle) return
+    
+    const maxNumber = puzzle.data.size === 3 ? 9 : 16
+    
+    // Validate input range
+    if (value !== 0 && (value < 1 || value > maxNumber)) {
+      setErrors([`Invalid number ${value}. Use 1-${maxNumber} for ${puzzle.data.size}x${puzzle.data.size} puzzles.`])
+      return
+    }
+    
+    // Check if the number already exists in the grid (unless it's 0 or replacing the same cell)
+    if (value !== 0) {
+      let numberExists = false
+      
+      for (let r = 0; r < puzzle.data.size; r++) {
+        for (let c = 0; c < puzzle.data.size; c++) {
+          // Skip the current cell we're trying to update
+          if (r === row && c === col) continue
+          
+          // Check if this exact value already exists elsewhere
+          const existingValue = playerGrid[r]?.[c]
+          if (existingValue === value) {
+            numberExists = true
+            break
+          }
+        }
+        if (numberExists) break
+      }
+      
+      if (numberExists) {
+        setErrors([`Number ${value} already exists in the grid. Each number can only appear once.`])
+        return
+      }
+    }
+    
+    // Clear any previous errors
+    setErrors([])
+    
     const newGrid = [...playerGrid]
     newGrid[row][col] = value
     setPlayerGrid(newGrid)
-    
-    // Check if puzzle is complete
-    if (newGrid.every(row => row.every(val => val > 0))) {
-      checkSolution(newGrid)
-    }
   }
 
   const validatePendingInput = () => {
@@ -231,37 +265,136 @@ export default function MaffdokuPuzzlePage() {
     validatePendingInput()
     setSelectedCell({ row, col })
     setInputBuffer('')
+    
+    // Show mobile keypad on touch devices
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                     ('ontouchstart' in window) || 
+                     (navigator.maxTouchPoints > 0)
+    
+    if (isMobile) {
+      setShowMobileKeypad(true)
+    }
+  }
+
+  const isGridComplete = () => {
+    return playerGrid.every(row => row.every(val => val > 0))
+  }
+
+  const handleCheckSolution = () => {
+    if (isGridComplete()) {
+      checkSolution(playerGrid)
+    }
+  }
+
+  const handleMobileInput = (value: string | number) => {
+    if (!selectedCell || !puzzle) return
+
+    if (value === 'clear') {
+      setCellValue(selectedCell.row, selectedCell.col, 0)
+      setShowMobileKeypad(false)
+      return
+    }
+
+    if (value === 'close') {
+      setShowMobileKeypad(false)
+      return
+    }
+
+    const numValue = typeof value === 'string' ? parseInt(value) : value
+    if (!isNaN(numValue)) {
+      setCellValue(selectedCell.row, selectedCell.col, numValue)
+      setShowMobileKeypad(false)
+      
+      // Auto-advance to next empty cell
+      const nextCell = findNextEmptyCell()
+      if (nextCell) {
+        setSelectedCell(nextCell)
+        setShowMobileKeypad(true)
+      }
+    }
+  }
+
+  const findNextEmptyCell = () => {
+    if (!selectedCell || !puzzle) return null
+    
+    const size = puzzle.data.size
+    let { row, col } = selectedCell
+    
+    // Start from next cell
+    col++
+    if (col >= size) {
+      col = 0
+      row++
+    }
+    
+    // Look for next empty cell
+    for (let r = row; r < size; r++) {
+      for (let c = (r === row ? col : 0); c < size; c++) {
+        if (playerGrid[r][c] === 0) {
+          return { row: r, col: c }
+        }
+      }
+    }
+    
+    // If no empty cell found after current position, search from beginning
+    for (let r = 0; r < size; r++) {
+      for (let c = 0; c < size; c++) {
+        if (playerGrid[r][c] === 0) {
+          return { row: r, col: c }
+        }
+      }
+    }
+    
+    return null
   }
 
   const checkSolution = async (grid: number[][]) => {
-    if (!session?.user?.id || !puzzle) return
+    console.log('checkSolution called with grid:', grid)
+    console.log('Session:', session?.user?.id)
+    console.log('Puzzle ID:', puzzleId)
+    
+    if (!session?.user?.id || !puzzle) {
+      console.log('Missing session or puzzle, returning')
+      return
+    }
 
     setSaving(true)
     try {
+      const requestBody = {
+        currentGrid: grid,
+        timeSpent,
+        isCompleted: true
+      }
+      console.log('Sending request:', requestBody)
+      
       const response = await fetch(`/api/puzzles/maffdoku/${puzzleId}/progress`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          currentGrid: grid,
-          timeSpent,
-          isCompleted: true
-        })
+        body: JSON.stringify(requestBody)
       })
 
+      console.log('Response status:', response.status)
       const data = await response.json()
+      console.log('Response data:', data)
       
       if (data.success) {
         if (data.data.isCorrect) {
+          console.log('Solution is correct!')
           setIsCompleted(true)
           setErrors([])
         } else {
+          console.log('Solution has errors:', data.data.errors)
           setErrors(data.data.errors || ['Some values are incorrect'])
         }
+      } else {
+        console.error('API returned error:', data)
+        setErrors([data.error || 'Failed to check solution'])
       }
     } catch (error) {
       console.error('Error checking solution:', error)
+      setErrors(['Failed to check solution'])
     } finally {
       setSaving(false)
     }
@@ -336,6 +469,33 @@ export default function MaffdokuPuzzlePage() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Check Solution Button */}
+        {!isCompleted && (
+          <div className="flex justify-center mb-6">
+            <button
+              onClick={handleCheckSolution}
+              disabled={!isGridComplete() || saving}
+              className={`px-6 py-3 rounded-lg font-medium text-white transition-colors flex items-center space-x-2 ${
+                isGridComplete() && !saving
+                  ? 'bg-purple-600 hover:bg-purple-700 cursor-pointer'
+                  : 'bg-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {saving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                  <span>Checking...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-5 w-5" />
+                  <span>Check Solution</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
         {/* Errors */}
         {errors.length > 0 && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -362,31 +522,33 @@ export default function MaffdokuPuzzlePage() {
                   width: 'fit-content'
                 }}
               >
-                {/* First row: empty corner + column sums + empty corner */}
-                <div className="w-12 h-12 border border-gray-300 bg-gray-200"></div>
+                                 {/* First row: Sigma corner + column sums + empty corner */}
+                 <div className="w-12 h-12 border border-gray-300 bg-blue-200 flex items-center justify-center">
+                   <span className="text-blue-800 font-bold text-xl">Σ</span>
+                 </div>
                 {Array.from({ length: puzzle.data.size }).map((_, col) => (
                   <div 
                     key={`sum-col-${col}`} 
-                    className={`w-12 h-12 border border-gray-300 flex items-center justify-center text-sm font-bold ${
-                      puzzle.data.visibility.columnSums[col] 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-gray-300 text-gray-500'
-                    }`}
+                                         className={`w-12 h-12 border border-gray-300 flex items-center justify-center text-sm font-bold ${
+                       puzzle.data.visibility.columnSums[col] 
+                         ? 'bg-blue-200 text-blue-800' 
+                         : 'bg-gray-300 text-gray-500'
+                     }`}
                   >
                     {puzzle.data.visibility.columnSums[col] ? (puzzle.data.constraints.columnSums[col] || '?') : '·'}
                   </div>
                 ))}
-                <div className="w-12 h-12 border border-gray-300 bg-gray-200"></div>
+                <div className="w-12 h-12"></div>
 
                 {/* Middle rows: row sum + puzzle cells + row product */}
                 {Array.from({ length: puzzle.data.size }).map((_, row) => [
                   <div 
                     key={`sum-row-${row}`} 
-                    className={`w-12 h-12 border border-gray-300 flex items-center justify-center text-sm font-bold ${
-                      puzzle.data.visibility.rowSums[row] 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-300 text-gray-500'
-                    }`}
+                                         className={`w-12 h-12 border border-gray-300 flex items-center justify-center text-sm font-bold ${
+                       puzzle.data.visibility.rowSums[row] 
+                         ? 'bg-blue-200 text-blue-800' 
+                         : 'bg-gray-300 text-gray-500'
+                     }`}
                   >
                     {puzzle.data.visibility.rowSums[row] ? (puzzle.data.constraints.rowSums[row] || '?') : '·'}
                   </div>,
@@ -418,31 +580,35 @@ export default function MaffdokuPuzzlePage() {
                   }),
                   <div 
                     key={`prod-row-${row}`} 
-                    className={`w-12 h-12 border border-gray-300 flex items-center justify-center text-sm font-bold ${
-                      puzzle.data.visibility.rowProducts[row] 
-                        ? 'bg-red-100 text-red-800' 
-                        : 'bg-gray-300 text-gray-500'
-                    }`}
+                                         className={`w-12 h-12 border border-gray-300 flex items-center justify-center text-sm font-bold ${
+                       puzzle.data.visibility.rowProducts[row] 
+                         ? 'bg-orange-200 text-orange-800' 
+                         : 'bg-gray-300 text-gray-500'
+                     }`}
                   >
                     {puzzle.data.visibility.rowProducts[row] ? (puzzle.data.constraints.rowProducts[row] || '?') : '·'}
                   </div>
                 ])}
 
-                {/* Last row: empty corner + column products + empty corner */}
-                <div className="w-12 h-12 border border-gray-300 bg-gray-200"></div>
+                                 {/* Last row: empty corner + column products + Pi corner */}
+                    <div className="w-12 h-12  flex items-center justify-center">
+                      {/* <span className="text-orange-800 font-bold text-xl">Π</span> */}
+                    </div>
                 {Array.from({ length: puzzle.data.size }).map((_, col) => (
                   <div 
                     key={`prod-col-${col}`} 
-                    className={`w-12 h-12 border border-gray-300 flex items-center justify-center text-sm font-bold ${
-                      puzzle.data.visibility.columnProducts[col] 
-                        ? 'bg-yellow-100 text-yellow-800' 
-                        : 'bg-gray-300 text-gray-500'
-                    }`}
+                                         className={`w-12 h-12 border border-gray-300 flex items-center justify-center text-sm font-bold ${
+                       puzzle.data.visibility.columnProducts[col] 
+                         ? 'bg-orange-200 text-orange-800' 
+                         : 'bg-gray-300 text-gray-500'
+                     }`}
                   >
                     {puzzle.data.visibility.columnProducts[col] ? (puzzle.data.constraints.columnProducts[col] || '?') : '·'}
                   </div>
                 ))}
-                <div className="w-12 h-12 border border-gray-300 bg-gray-200"></div>
+                <div className="w-12 h-12 border border-gray-300 bg-orange-200 flex items-center justify-center">
+                  <span className="text-orange-800 font-bold text-xl">Π</span>
+                </div>
               </div>
             </div>
           </div>
@@ -452,7 +618,8 @@ export default function MaffdokuPuzzlePage() {
             <div className="space-y-1">
               <div><strong>Goal:</strong> Fill the grid with numbers 1-{puzzle.data.size === 3 ? 9 : 16} (each used exactly once)</div>
               <div><strong>Constraints:</strong> Match the visible sums and products shown around the grid</div>
-              <div><strong>Input:</strong> Click cells and type numbers • Use arrow keys to navigate</div>
+              <div><strong>Input:</strong> Click cells to select • Desktop: type numbers or use arrow keys • Mobile: tap for number pad</div>
+              <div><strong>Submit:</strong> Fill all cells, then click "Check Solution" to validate your answer</div>
               {selectedCell && (
                 <div className="mt-2 text-xs text-purple-600 font-medium">
                   Selected: Row {selectedCell.row + 1}, Column {selectedCell.col + 1}
@@ -461,6 +628,60 @@ export default function MaffdokuPuzzlePage() {
               )}
             </div>
           </div>
+
+          {/* Mobile Keypad */}
+          {showMobileKeypad && selectedCell && puzzle && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
+              <div className="bg-white w-full max-w-md rounded-t-2xl p-6 pb-8">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">
+                    Enter Number (Row {selectedCell.row + 1}, Col {selectedCell.col + 1})
+                  </h3>
+                  <button
+                    onClick={() => handleMobileInput('close')}
+                    className="text-gray-500 hover:text-gray-700 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-4 gap-3 mb-4">
+                  {Array.from({ length: puzzle.data.size * puzzle.data.size }, (_, i) => i + 1).map(num => {
+                    const isUsed = playerGrid.flat().includes(num)
+                    return (
+                      <button
+                        key={num}
+                        onClick={() => handleMobileInput(num)}
+                        disabled={isUsed}
+                        className={`h-12 rounded-lg font-semibold text-lg transition-colors ${
+                          isUsed
+                            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                            : 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700'
+                        }`}
+                      >
+                        {num}
+                      </button>
+                    )
+                  })}
+                </div>
+                
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => handleMobileInput('clear')}
+                    className="flex-1 h-12 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 active:bg-red-700"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    onClick={() => handleMobileInput('close')}
+                    className="flex-1 h-12 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 active:bg-gray-700"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
