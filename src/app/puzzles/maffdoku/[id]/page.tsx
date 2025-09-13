@@ -577,7 +577,7 @@ export default function MaffdokuPuzzlePage() {
                           isSelected 
                             ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' 
                             : 'border-gray-300 bg-white'
-                        } ${isCompleted ? 'cursor-not-allowed' : ''}`}
+                        } ${isCompleted ? 'cursor-not-allowed bg-emerald-100' : 'bg-white-100'}`}
                         title={`Click to select, then type numbers 1-${puzzle.data.size === 3 ? 9 : 16}`}
                       >
                         {hasValue ? (

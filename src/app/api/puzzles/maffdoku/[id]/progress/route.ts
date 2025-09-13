@@ -70,7 +70,7 @@ function validateMaffdokuSolution(data: MaffdokuData, userGrid: number[][]): Maf
     for (let col = 0; col < size; col++) {
       const actualSum = userGrid.reduce((sum, row) => sum + row[col], 0)
       const expectedSum = data.constraints.columnSums[col]
-      if (actualSum !== expectedSum) {
+      if (actualSum !== expectedSum && data.visibility.columnSums[col]) {
         errors.push({ 
           row: 0, 
           col, 
@@ -83,7 +83,7 @@ function validateMaffdokuSolution(data: MaffdokuData, userGrid: number[][]): Maf
     for (let row = 0; row < size; row++) {
       const actualSum = userGrid[row].reduce((sum, val) => sum + val, 0)
       const expectedSum = data.constraints.rowSums[row]
-      if (actualSum !== expectedSum) {
+      if (actualSum !== expectedSum && data.visibility.rowSums[row]) {
         errors.push({ 
           row, 
           col: 0, 
@@ -96,7 +96,7 @@ function validateMaffdokuSolution(data: MaffdokuData, userGrid: number[][]): Maf
     for (let col = 0; col < size; col++) {
       const actualProduct = userGrid.reduce((prod, row) => prod * row[col], 1)
       const expectedProduct = data.constraints.columnProducts[col]
-      if (actualProduct !== expectedProduct) {
+      if (actualProduct !== expectedProduct && data.visibility.columnProducts[col]) {
         errors.push({ 
           row: size - 1, 
           col, 
@@ -109,7 +109,7 @@ function validateMaffdokuSolution(data: MaffdokuData, userGrid: number[][]): Maf
     for (let row = 0; row < size; row++) {
       const actualProduct = userGrid[row].reduce((prod, val) => prod * val, 1)
       const expectedProduct = data.constraints.rowProducts[row]
-      if (actualProduct !== expectedProduct) {
+      if (actualProduct !== expectedProduct && data.visibility.rowProducts[row]) {
         errors.push({ 
           row, 
           col: size - 1, 
