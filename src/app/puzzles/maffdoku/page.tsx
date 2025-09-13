@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { Grid2x2X, Clock, Trophy, Star, Filter, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
-import { DifficultyLevel, IPuzzle, IUserProgress } from '@/types'
+import { Grid2x2X, Clock, Trophy, Filter, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
+import { DifficultyLevel, IPuzzle, IUserProgress, MaffdokuData } from '@/types'
 
 interface PuzzleWithProgress extends IPuzzle {
   userProgress?: IUserProgress | null
@@ -22,12 +22,14 @@ interface PuzzlesResponse {
 
 export default function MaffdokuPuzzlesPage() {
   const { data: session } = useSession()
-  const [puzzles, setPuzzles] = useState<PuzzleWithProgress[]>([])
+  const [puzzles3x3, setPuzzles3x3] = useState<PuzzleWithProgress[]>([])
+  const [puzzles4x4, setPuzzles4x4] = useState<PuzzleWithProgress[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyLevel | ''>('')
+  const [activeTab, setActiveTab] = useState<'3x3' | '4x4'>('3x3')
 
   const difficulties: { value: DifficultyLevel | ''; label: string; color: string }[] = [
     { value: '', label: 'All Levels', color: 'bg-gray-100' },
@@ -53,7 +55,16 @@ export default function MaffdokuPuzzlesPage() {
       const data = await response.json()
 
       if (data.success) {
-        setPuzzles(data.data.puzzles)
+        // Separate puzzles by size
+        const puzzles3x3Data = data.data.puzzles.filter((puzzle: PuzzleWithProgress) => 
+          (puzzle.data as MaffdokuData).size === 3
+        )
+        const puzzles4x4Data = data.data.puzzles.filter((puzzle: PuzzleWithProgress) => 
+          (puzzle.data as MaffdokuData).size === 4
+        )
+        
+        setPuzzles3x3(puzzles3x3Data)
+        setPuzzles4x4(puzzles4x4Data)
         setTotalPages(data.data.pagination.pages)
       } else {
         setError(data.error || 'Failed to load puzzles')
@@ -111,7 +122,7 @@ export default function MaffdokuPuzzlesPage() {
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
               <Link href="/" className="text-gray-600 hover:text-gray-900">
                 <ChevronLeft className="h-6 w-6" />
@@ -138,6 +149,30 @@ export default function MaffdokuPuzzlesPage() {
                 ))}
               </select>
             </div>
+          </div>
+          
+          {/* Tabs */}
+          <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
+            <button
+              onClick={() => setActiveTab('3x3')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === '3x3'
+                  ? 'bg-white text-purple-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              3×3 Puzzles
+            </button>
+            <button
+              onClick={() => setActiveTab('4x4')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === '4x4'
+                  ? 'bg-white text-purple-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              4×4 Puzzles
+            </button>
           </div>
         </div>
       </div>
@@ -195,71 +230,68 @@ export default function MaffdokuPuzzlesPage() {
               </div>
             ))}
           </div>
-        ) : puzzles.length === 0 ? (
-          <div className="text-center py-12">
-            <Grid2x2X className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No puzzles found</h3>
-            <p className="text-gray-600">
-              {selectedDifficulty 
-                ? `No ${selectedDifficulty} level puzzles available yet.`
-                : 'No Maffdoku puzzles available yet.'
-              }
-            </p>
-          </div>
-        ) : (
-          <>
-            {/* Puzzles Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-              {puzzles.map((puzzle) => {
-                const difficultyInfo = difficulties.find(d => d.value === puzzle.difficulty)
-                return (
-                  <Link
-                    key={puzzle._id}
-                    href={`/puzzles/maffdoku/${puzzle._id}`}
-                    className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 p-6 group"
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">
-                        {puzzle.title}
-                      </h3>
-                      {getStatusBadge(puzzle)}
-                    </div>
-
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                      {puzzle.description}
-                    </p>
-
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs ${difficultyInfo?.color || 'bg-gray-100'}`}>
-                          {difficultyInfo?.label || puzzle.difficulty}
-                        </span>
-                        <div className="flex items-center space-x-1 text-gray-500">
-                          <Star className="h-4 w-4" />
-                          <span>{puzzle.points} pts</span>
-                        </div>
+        ) : (() => {
+          const currentPuzzles = activeTab === '3x3' ? puzzles3x3 : puzzles4x4
+          return currentPuzzles.length === 0 ? (
+            <div className="text-center py-12">
+              <Grid2x2X className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No {activeTab} puzzles found</h3>
+              <p className="text-gray-600">
+                {selectedDifficulty 
+                  ? `No ${selectedDifficulty} level ${activeTab} puzzles available yet.`
+                  : `No ${activeTab} puzzles available yet.`
+                }
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Puzzles Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
+                {currentPuzzles.sort((a, b) => a.title.localeCompare(b.title)).map((puzzle) => {
+                  const difficultyInfo = difficulties.find(d => d.value === puzzle.difficulty)
+                  return (
+                    <Link
+                      key={puzzle._id}
+                      href={`/puzzles/maffdoku/${puzzle._id}`}
+                      className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 p-6 group"
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 group-hover:text-purple-600 transition-colors">
+                          {puzzle.title}
+                        </h3>
+                        {getStatusBadge(puzzle)}
                       </div>
 
-                      {puzzle.userProgress && (
-                        <div className="text-xs text-gray-500 flex items-center justify-between">
-                          <span>Attempts: {puzzle.userProgress.attempts}</span>
-                          {puzzle.userProgress.timeSpent > 0 && (
-                            <span>Time: {formatTime(puzzle.userProgress.timeSpent)}</span>
-                          )}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className={`px-2 py-1 rounded-full text-xs ${difficultyInfo?.color || 'bg-gray-100'}`}>
+                            {difficultyInfo?.label || puzzle.difficulty}
+                          </span>
                         </div>
-                      )}
-                    </div>
 
-                    <div className="mt-4 text-purple-600 text-sm font-medium group-hover:text-purple-700">
-                      {puzzle.userProgress?.status === 'completed' ? 'Play Again' : 'Start Puzzle'} →
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
+                        {puzzle.userProgress && (
+                          <div className="text-xs text-gray-500 flex items-center justify-between">
+                            <span>Attempts: {puzzle.userProgress.attempts}</span>
+                            {puzzle.userProgress.timeSpent > 0 && (
+                              <span>Time: {formatTime(puzzle.userProgress.timeSpent)}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
+                      <div className="mt-4 text-purple-600 text-sm font-medium group-hover:text-purple-700">
+                        {puzzle.userProgress?.status === 'completed' ? 'Play Again' : 'Start Puzzle'} →
+                      </div>
+                    </Link>
+                  )
+                })}
+              </div>
+            </>
+          )
+        })()}
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
               <div className="flex items-center justify-center space-x-4">
                 <button
                   onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
@@ -300,8 +332,6 @@ export default function MaffdokuPuzzlesPage() {
                 </button>
               </div>
             )}
-          </>
-        )}
       </div>
     </div>
   )

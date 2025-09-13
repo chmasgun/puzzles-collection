@@ -661,7 +661,7 @@ export default function MaffdokuPuzzlePage() {
                       !selectedCell
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : isUsed
-                        ? 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700 border-4 border-gray-900'
+                        ? 'bg-blue-200 text-white hover:bg-blue-600 active:bg-blue-700 border-4 border-gray-300'
                         : 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700'
                     }`}
                     title={isUsed ? `Number ${num} is already used in the grid` : `Number ${num} not yet used`}
