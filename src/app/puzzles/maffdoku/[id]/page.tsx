@@ -335,8 +335,8 @@ export default function MaffdokuPuzzlePage() {
     console.log('Session:', session?.user?.id)
     console.log('Puzzle ID:', puzzleId)
     
-    if (!session?.user?.id || !puzzle) {
-      console.log('Missing session or puzzle, returning')
+    if (!puzzle) {
+      console.log('Missing puzzle, returning')
       return
     }
 
