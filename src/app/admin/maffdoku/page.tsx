@@ -191,7 +191,8 @@ export default function MaffdokuAdminPage() {
       Array(size).fill(null).map(() => ({
         value: null,
         isGiven: false,
-        isValid: true
+        isValid: true,
+        isStarterHint: false
       }))
     )
 
@@ -307,7 +308,8 @@ export default function MaffdokuAdminPage() {
       Array(size).fill(null).map(() => ({
         value: null, // Start with empty cells
         isGiven: false,
-        isValid: true
+        isValid: true,
+        isStarterHint: false
       }))
     )
   }
@@ -482,7 +484,24 @@ export default function MaffdokuAdminPage() {
     }))
   }
 
-  const generatePuzzleHash = (grid: number[][], size: number, visibility: any): string => {
+  const toggleStarterHint = (row: number, col: number) => {
+    setPuzzleData(prev => ({
+      ...prev,
+      grid: prev.grid.map((gridRow, r) =>
+        gridRow.map((cell, c) => {
+          if (r === row && c === col) {
+            return {
+              ...cell,
+              isStarterHint: !cell.isStarterHint
+            }
+          }
+          return cell
+        })
+      )
+    }))
+  }
+
+  const generatePuzzleHash = (grid: number[][], size: number, visibility: any, starterHints?: boolean[][]): string => {
     // 1. Size identifier (3 or 4)
     let hash = size.toString()
     
@@ -494,7 +513,21 @@ export default function MaffdokuAdminPage() {
       }
     }
     
-    // 3. Visibility encoding in consistent order:
+    // 3. Starter hints encoding (9 bits for 3x3, 16 bits for 4x4)
+    if (starterHints) {
+      for (let row = 0; row < size; row++) {
+        for (let col = 0; col < size; col++) {
+          hash += starterHints[row][col] ? '1' : '0'
+        }
+      }
+    } else {
+      // If no starter hints provided, add zeros
+      for (let i = 0; i < size * size; i++) {
+        hash += '0'
+      }
+    }
+    
+    // 4. Visibility encoding in consistent order:
     // columnSums, columnProducts, rowSums, rowProducts
     const visibilityArrays = [
       visibility.columnSums,
@@ -523,8 +556,22 @@ export default function MaffdokuAdminPage() {
       numbers.push(parseInt(gridNumbers.substring(i, i + 2)))
     }
     
+    // Parse starter hints (size * size bits after grid numbers)
+    const starterHintsLength = size * size
+    const starterHintsStart = 1 + gridNumbersLength
+    const starterHintsString = hash.substring(starterHintsStart, starterHintsStart + starterHintsLength)
+    const starterHints = []
+    for (let row = 0; row < size; row++) {
+      const rowHints = []
+      for (let col = 0; col < size; col++) {
+        const index = row * size + col
+        rowHints.push(starterHintsString[index] === '1')
+      }
+      starterHints.push(rowHints)
+    }
+    
     // Parse visibility flags (4 sections of 'size' digits each)
-    const visibilityStart = 1 + gridNumbersLength
+    const visibilityStart = starterHintsStart + starterHintsLength
     const columnSums = hash.substring(visibilityStart, visibilityStart + size).split('').map(c => c === '1')
     const columnProducts = hash.substring(visibilityStart + size, visibilityStart + size * 2).split('').map(c => c === '1')
     const rowSums = hash.substring(visibilityStart + size * 2, visibilityStart + size * 3).split('').map(c => c === '1')
@@ -533,6 +580,7 @@ export default function MaffdokuAdminPage() {
     return {
       size,
       gridNumbers: numbers,
+      starterHints,
       visibility: {
         columnSums,
         columnProducts,
@@ -550,8 +598,13 @@ export default function MaffdokuAdminPage() {
 
     setIsSaving(true)
     try {
+      // Extract starter hints from puzzle data
+      const starterHints = puzzleData.grid.map(row => 
+        row.map(cell => cell.isStarterHint || false)
+      )
+      
       // Generate unique hash for this puzzle configuration
-      const puzzleHash = generatePuzzleHash(solutionGrid, form.size, puzzleData.visibility)
+      const puzzleHash = generatePuzzleHash(solutionGrid, form.size, puzzleData.visibility, starterHints)
       
       // First, get existing puzzles to check for duplicates and get next ID
       const existingResponse = await fetch('/api/puzzles/maffdoku')
@@ -585,6 +638,17 @@ export default function MaffdokuAdminPage() {
         nextId = maxId + 1
       }
 
+      // Merge solution values into puzzle data grid
+      const puzzleDataWithValues = {
+        ...puzzleData,
+        grid: puzzleData.grid.map((row, rowIndex) =>
+          row.map((cell, colIndex) => ({
+            ...cell,
+            value: solutionGrid[rowIndex][colIndex]
+          }))
+        )
+      }
+
       // Generate title and description based on ID and properties
       const title = `Maffdoku #${nextId}`
       const description = `${form.size}x${form.size} ${form.difficulty.toLowerCase()} puzzle with ${form.points} points`
@@ -598,7 +662,7 @@ export default function MaffdokuAdminPage() {
           title,
           description,
           difficulty: form.difficulty,
-          data: puzzleData,
+          data: puzzleDataWithValues,
           solution: { grid: solutionGrid },
           timeLimit: form.timeLimit,
           points: form.points,
@@ -699,10 +763,10 @@ export default function MaffdokuAdminPage() {
                       <strong>Puzzle Hash:</strong>
                     </p>
                     <code className="text-xs font-mono bg-green-100 px-2 py-1 rounded">
-                      {generatePuzzleHash(solutionGrid, form.size, puzzleData.visibility)}
+                      {generatePuzzleHash(solutionGrid, form.size, puzzleData.visibility, puzzleData.grid.map(row => row.map(cell => cell.isStarterHint || false)))}
                     </code>
                     <p className="text-xs text-green-600 mt-1">
-                      This unique hash prevents duplicate puzzles and encodes all puzzle data.
+                      This unique hash prevents duplicate puzzles and encodes all puzzle data including starter hints.
                     </p>
                   </div>
                 )}
@@ -889,17 +953,30 @@ export default function MaffdokuAdminPage() {
                         const isSelected = selectedCell?.row === row && selectedCell?.col === col
                         const hasValue = solutionGrid[row] && solutionGrid[row][col]
                         const showBuffer = isSelected && inputBuffer !== '' && !hasValue
+                        const isStarterHint = puzzleData.grid[row] && puzzleData.grid[row][col]?.isStarterHint
                         
                         return (
                           <div
                             key={`cell-${row}-${col}`}
-                            onClick={() => handleCellClick(row, col)}
-                            className={`w-12 h-12 border-2 cursor-pointer flex items-center justify-center text-sm font-medium hover:bg-gray-50 transition-colors ${
+                            onClick={(e) => {
+                              // If right-click or ctrl+click, toggle starter hint
+                              if (e.ctrlKey || e.button === 2) {
+                                e.preventDefault()
+                                toggleStarterHint(row, col)
+                              } else {
+                                handleCellClick(row, col)
+                              }
+                            }}
+                            onContextMenu={(e) => {
+                              e.preventDefault()
+                              toggleStarterHint(row, col)
+                            }}
+                            className={`w-12 h-12 border-2 cursor-pointer flex items-center justify-center text-sm font-medium hover:bg-gray-50 transition-colors relative ${
                               isSelected 
                                 ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' 
                                 : 'border-gray-300 bg-white'
-                            }`}
-                            title={`Click to select, then type numbers 1-${form.size === 3 ? 9 : 16} or 0 to clear`}
+                            } ${isStarterHint ? 'bg-yellow-100 border-yellow-400' : ''}`}
+                            title={`Click to select, Ctrl+Click or Right-click to toggle starter hint, then type numbers 1-${form.size === 3 ? 9 : 16} or 0 to clear`}
                           >
                             {hasValue ? (
                               <span className="text-blue-600 font-bold text-lg">{solutionGrid[row][col]}</span>
@@ -907,6 +984,9 @@ export default function MaffdokuAdminPage() {
                               <span className="text-purple-600 font-bold text-lg">{inputBuffer}_</span>
                             ) : (
                               <span className="text-gray-300 text-xs">·</span>
+                            )}
+                            {isStarterHint && (
+                              <div className="absolute top-0 right-0 w-3 h-3 bg-yellow-500 rounded-full border border-yellow-600"></div>
                             )}
                           </div>
                         )
@@ -963,9 +1043,11 @@ export default function MaffdokuAdminPage() {
                   <div><strong>Click center cells</strong> to select, then <strong>type numbers 1-{form.size === 3 ? 9 : 16}</strong> (each number only once!)</div>
                   <div><strong>Multi-digit:</strong> Type digits sequentially (e.g., "1" then "2" for "12") • <strong>Click elsewhere</strong> to confirm</div>
                   <div><strong>Input:</strong> Click cells to select • Use number pad below or type on keyboard • <strong>Click outer cells</strong> to toggle visibility</div>
+                  <div><strong>Starter Hints:</strong> <strong>Ctrl+Click</strong> or <strong>Right-click</strong> cells to toggle starter hints (yellow dot indicator)</div>
                   <div className="flex justify-center space-x-4 text-xs mt-2">
                     <span className="flex items-center"><div className="w-3 h-3 bg-blue-200 border mr-1"></div>Sums (Σ)</span>
                     <span className="flex items-center"><div className="w-3 h-3 bg-orange-200 border mr-1"></div>Products (Π)</span>
+                    <span className="flex items-center"><div className="w-3 h-3 bg-yellow-100 border-yellow-400 border mr-1"></div>Starter Hints</span>
                   </div>
                   {selectedCell && (
                     <div className="mt-2 text-xs text-purple-600 font-medium">

@@ -34,6 +34,7 @@ export interface MaffdokuCell {
   value: number | null
   isGiven: boolean
   isValid: boolean
+  isStarterHint?: boolean // New field for starter hints
 }
 
 export interface MaffdokuConstraints {

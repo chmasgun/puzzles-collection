@@ -18,11 +18,27 @@ function validateMaffdokuSolution(data: MaffdokuData, userGrid: number[][]): Maf
   const size = data.size
   let isComplete = true
 
-  // Check if all cells are filled
+  // Check if all cells are filled and starter hints are preserved
   for (let row = 0; row < size; row++) {
     for (let col = 0; col < size; col++) {
-      if (!userGrid[row] || userGrid[row][col] === null || userGrid[row][col] === 0) {
+      const cell = data.grid[row]?.[col]
+      const userValue = userGrid[row]?.[col]
+      
+      // Check if cell is filled
+      if (!userGrid[row] || userValue === null || userValue === 0) {
         isComplete = false
+      }
+      
+      // Check if starter hints are preserved
+      if (cell?.isStarterHint && cell?.value) {
+        if (userValue !== cell.value) {
+          errors.push({
+            row,
+            col,
+            message: `Starter hint cell must contain ${cell.value}, but has ${userValue}`
+          })
+          isComplete = false
+        }
       }
     }
   }

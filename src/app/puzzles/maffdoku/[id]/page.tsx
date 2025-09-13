@@ -70,17 +70,25 @@ export default function MaffdokuPuzzlePage() {
         if (data.success) {
           setPuzzle(data.data)
           
-          // Initialize player grid from progress or empty
+          // Initialize player grid from progress or with starter hints
           if (data.data.userProgress?.currentGrid) {
             setPlayerGrid(data.data.userProgress.currentGrid)
             setTimeSpent(data.data.userProgress.timeSpent || 0)
             setIsCompleted(data.data.userProgress.isCompleted || false)
           } else {
-            // Initialize empty grid
-            const emptyGrid = Array(data.data.data.size).fill(null).map(() =>
-              Array(data.data.data.size).fill(0)
+            // Initialize grid with starter hints pre-filled
+            const initialGrid = Array(data.data.data.size).fill(null).map((_, row) =>
+              Array(data.data.data.size).fill(null).map((_, col) => {
+                const cell = data.data.data.grid[row]?.[col]
+                if (cell?.isStarterHint && cell?.value) {
+                  return cell.value
+                }
+                return 0
+              })
             )
-            setPlayerGrid(emptyGrid)
+            setPlayerGrid(initialGrid)
+            console.log('initialGrid', initialGrid)
+            console.log("data:" , data)
           }
         } else {
           console.error('Failed to fetch puzzle:', data.error)
@@ -205,8 +213,19 @@ export default function MaffdokuPuzzlePage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [selectedCell, puzzle, inputBuffer, isCompleted])
 
+  const isStarterHint = (row: number, col: number) => {
+    if (!puzzle) return false
+    return puzzle.data.grid[row]?.[col]?.isStarterHint || false
+  }
+
   const setCellValue = (row: number, col: number, value: number) => {
     if (!puzzle) return
+    
+    // Prevent editing starter hints
+    if (isStarterHint(row, col)) {
+      setErrors(['Cannot edit starter hints - they are pre-filled for you!'])
+      return
+    }
     
     const maxNumber = puzzle.data.size === 3 ? 9 : 16
     
@@ -261,6 +280,12 @@ export default function MaffdokuPuzzlePage() {
   }
 
   const handleCellClick = (row: number, col: number) => {
+    // Don't allow selecting starter hint cells
+    if (isStarterHint(row, col)) {
+      setErrors(['This cell is a starter hint and cannot be edited'])
+      return
+    }
+    
     validatePendingInput()
     setSelectedCell({ row, col })
     setInputBuffer('')
@@ -412,6 +437,8 @@ export default function MaffdokuPuzzlePage() {
       </div>
     )
   }
+
+  console.log('playerGrid', playerGrid)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -568,24 +595,34 @@ export default function MaffdokuPuzzlePage() {
                     const isSelected = selectedCell?.row === row && selectedCell?.col === col
                     const hasValue = playerGrid[row] && playerGrid[row][col]
                     const showBuffer = isSelected && inputBuffer !== '' && !hasValue
+                    const isStarter = isStarterHint(row, col)
                     
                     return (
                       <div
                         key={`cell-${row}-${col}`}
                         onClick={() => handleCellClick(row, col)}
-                        className={`w-12 h-12 border-2 cursor-pointer flex items-center justify-center text-sm font-medium hover:bg-gray-50 transition-colors ${
-                          isSelected 
-                            ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200' 
-                            : 'border-gray-300 bg-white'
-                        } ${isCompleted ? 'cursor-not-allowed bg-emerald-100' : 'bg-white-100'}`}
-                        title={`Click to select, then type numbers 1-${puzzle.data.size === 3 ? 9 : 16}`}
+                        className={`w-12 h-12 border-2 flex items-center justify-center text-sm font-medium transition-colors relative ${
+                          isStarter 
+                            ? 'border-yellow-400 bg-yellow-100 cursor-not-allowed' 
+                            : isSelected 
+                              ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-200 cursor-pointer hover:bg-gray-50' 
+                              : 'border-gray-300 bg-white cursor-pointer hover:bg-gray-50'
+                        } ${isCompleted ? 'cursor-not-allowed !bg-emerald-100' : ''}`}
+                        title={isStarter 
+                          ? `Starter hint: ${playerGrid[row][col]} (cannot be edited)` 
+                          : `Click to select, then type numbers 1-${puzzle.data.size === 3 ? 9 : 16}`}
                       >
                         {hasValue ? (
-                          <span className="text-blue-600 font-bold text-lg">{playerGrid[row][col]}</span>
+                          <span className={`font-bold text-lg ${
+                            isStarter ? 'text-yellow-800' : 'text-blue-600'
+                          }`}>{playerGrid[row][col]}</span>
                         ) : showBuffer ? (
                           <span className="text-purple-600 font-bold text-lg">{inputBuffer}_</span>
                         ) : (
                           <span className="text-gray-300 text-xs">·</span>
+                        )}
+                        {isStarter && (
+                          <div className="absolute top-0 right-0 w-3 h-3 bg-yellow-500 rounded-full border border-yellow-600"></div>
                         )}
                       </div>
                     )
@@ -671,6 +708,7 @@ export default function MaffdokuPuzzlePage() {
             <div className="space-y-1">
               <div><strong>Goal:</strong> Fill the grid with numbers 1-{puzzle.data.size === 3 ? 9 : 16} (each used exactly once)</div>
               <div><strong>Constraints:</strong> Match the visible sums and products shown around the grid</div>
+              <div><strong>Starter Hints:</strong> Yellow cells with dots are pre-filled and cannot be edited</div>
               <div><strong>Input:</strong> Click cells to select • Use number pad below or type on keyboard</div>
               <div><strong>Submit:</strong> Fill all cells, then click "Check Solution" to validate your answer</div>
               {selectedCell && (
