@@ -235,30 +235,7 @@ export default function MaffdokuPuzzlePage() {
       return
     }
     
-    // Check if the number already exists in the grid (unless it's 0 or replacing the same cell)
-    if (value !== 0) {
-      let numberExists = false
-      
-      for (let r = 0; r < puzzle.data.size; r++) {
-        for (let c = 0; c < puzzle.data.size; c++) {
-          // Skip the current cell we're trying to update
-          if (r === row && c === col) continue
-          
-          // Check if this exact value already exists elsewhere
-          const existingValue = playerGrid[r]?.[c]
-          if (existingValue === value) {
-            numberExists = true
-            break
-          }
-        }
-        if (numberExists) break
-      }
-      
-      if (numberExists) {
-        setErrors([`Number ${value} already exists in the grid. Each number can only appear once.`])
-        return
-      }
-    }
+    // Allow duplicate numbers for better user experience - validation happens on solution check
     
     // Clear any previous errors
     setErrors([])
@@ -509,7 +486,11 @@ export default function MaffdokuPuzzlePage() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Check Solution Button */}
-        {!isCompleted && (
+        {isCompleted  ?  (
+          <div className="flex justify-center mb-6 bg-emerald-100 p-4 rounded-lg">
+            <span className="text-green-600 font-medium">Solution is correct!</span>
+          </div>
+        ): (
           <div className="flex justify-center mb-6">
             <button
               onClick={handleCheckSolution}
@@ -675,14 +656,15 @@ export default function MaffdokuPuzzlePage() {
                   <button
                     key={num}
                     onClick={() => handleNumberClick(num)}
-                    disabled={isUsed || !selectedCell}
+                    disabled={!selectedCell}
                     className={`w-12 h-12 rounded-lg font-semibold text-lg transition-colors ${
-                      isUsed
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : !selectedCell
+                      !selectedCell
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : isUsed
+                        ? 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700 border-4 border-gray-900'
                         : 'bg-blue-500 text-white hover:bg-blue-600 active:bg-blue-700'
                     }`}
+                    title={isUsed ? `Number ${num} is already used in the grid` : `Number ${num} not yet used`}
                   >
                     {num}
                   </button>
@@ -706,10 +688,10 @@ export default function MaffdokuPuzzlePage() {
           {/* Instructions */}
           <div className="mt-6 text-center text-sm text-gray-600">
             <div className="space-y-1">
-              <div><strong>Goal:</strong> Fill the grid with numbers 1-{puzzle.data.size === 3 ? 9 : 16} (each used exactly once)</div>
+              <div><strong>Goal:</strong> Fill the grid with numbers 1-{puzzle.data.size === 3 ? 9 : 16} (each used exactly once in final solution)</div>
               <div><strong>Constraints:</strong> Match the visible sums and products shown around the grid</div>
               <div><strong>Starter Hints:</strong> Yellow cells with dots are pre-filled and cannot be edited</div>
-              <div><strong>Input:</strong> Click cells to select • Use number pad below or type on keyboard</div>
+              <div><strong>Input:</strong> Click cells to select • Use number pad below or type on keyboard • Numbers with borders are already used</div>
               <div><strong>Submit:</strong> Fill all cells, then click "Check Solution" to validate your answer</div>
               {selectedCell && (
                 <div className="mt-2 text-xs text-purple-600 font-medium">
