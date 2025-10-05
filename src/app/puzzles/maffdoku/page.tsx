@@ -247,7 +247,7 @@ export default function MaffdokuPuzzlesPage() {
             <>
               {/* Puzzles Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
-                {currentPuzzles.sort((a, b) => a.title.localeCompare(b.title)).map((puzzle) => {
+                {currentPuzzles.sort((a, b) => (a.title || '').localeCompare(b.title || '')).map((puzzle) => {
                   const difficultyInfo = difficulties.find(d => d.value === puzzle.difficulty)
                   return (
                     <Link

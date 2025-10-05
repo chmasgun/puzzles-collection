@@ -42,7 +42,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       puzzleWithProgress = {
         ...puzzle,
         userProgress: userProgress || null
-      }
+      } as any
     }
 
     return NextResponse.json({
