@@ -19,7 +19,8 @@ export enum PuzzleType {
   MAFFDOKU = 'maffdoku',
   PATTERN_MATCHING = 'pattern_matching',
   LOGIC_PUZZLE = 'logic_puzzle',
-  MATH_PUZZLE = 'math_puzzle'
+  MATH_PUZZLE = 'math_puzzle',
+  BRAINTEASERS = 'brainteasers'
 }
 
 export enum DifficultyLevel {
@@ -68,8 +69,8 @@ export interface MaffdokuSolution {
 
 export interface IPuzzle extends Document {
   _id: string
-  title: string
-  description: string
+  title?: string
+  description?: string
   type: PuzzleType
   difficulty: DifficultyLevel
   data: Record<string, any> // JSON data specific to puzzle type

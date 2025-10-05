@@ -4,15 +4,17 @@ import { IPuzzle, PuzzleType, DifficultyLevel } from '@/types'
 const PuzzleSchema = new Schema<IPuzzle>({
   title: {
     type: String,
-    required: [true, 'Title is required'],
+    required: false,
     trim: true,
-    maxlength: [100, 'Title cannot exceed 100 characters']
+    maxlength: [100, 'Title cannot exceed 100 characters'],
+    default: 'Untitled Puzzle'
   },
   description: {
     type: String,
-    required: [true, 'Description is required'],
+    required: false,
     trim: true,
-    maxlength: [500, 'Description cannot exceed 500 characters']
+    maxlength: [500, 'Description cannot exceed 500 characters'],
+    default: ''
   },
   type: {
     type: String,
@@ -77,4 +79,9 @@ PuzzleSchema.index({ tags: 1 })
 PuzzleSchema.index({ createdBy: 1 })
 PuzzleSchema.index({ createdAt: -1 })
 
-export default mongoose.models.Puzzle || mongoose.model<IPuzzle>('Puzzle', PuzzleSchema) 
+// Clear any existing model to force recompilation with new schema
+if (mongoose.models.Puzzle) {
+  delete mongoose.models.Puzzle
+}
+
+export default mongoose.model<IPuzzle>('Puzzle', PuzzleSchema) 

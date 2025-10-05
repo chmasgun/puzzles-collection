@@ -55,6 +55,14 @@ export default function HomePage() {
       icon: Grid2x2X,
       color: 'bg-yellow-500',
       href: '/puzzles/maffdoku'
+    },
+    {
+      id: 'brainteasers',
+      name: 'Brain Teasers',
+      description: 'Brain teasers are puzzles that test your logic, reasoning, and problem-solving skills.',
+      icon: Brain,
+      color: 'bg-green-500',
+      href: '/puzzles/brainteasers'
     }
   ]
 
